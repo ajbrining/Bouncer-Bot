@@ -64,7 +64,7 @@ async def send_intro(data):
     channel = get(server.channels, name=config['intro_channel'])
     await channel.send(message)
 
-    await client.get_user(data.id).send("Okay, you're all set! Be sure to stop by #role-react so you can grab any additional roles you want.")        
+    await client.get_user(data.id).send("Okay, you're all set! Be sure to stop by #role-react so you can grab any additional roles you want.")
     session.query(Intro).filter_by(id=data.id).delete()
 
 async def init_intro(user):
@@ -91,7 +91,7 @@ async def on_member_join(member):
     await init_intro(member)
 
 @client.event
-async def on_member_remove(member): 
+async def on_member_remove(member):
     session.query(Intro).filter_by(id=member.id).delete()
     # TODO: look for their introduction and remove it if they have one
     channel = get(member.guild.channels, name=config['intro_channel'])
@@ -169,9 +169,9 @@ async def on_message(message):
                     return
 
                 result.nsfw = nsfw
-                
-                await send_intro(result) 
-                
+
+                await send_intro(result)
+
         else:
             await message.author.send("Hmm, I don't have any record of you joining recently. If you are missing any roles, please contact a Mod or Admin.")
 
