@@ -173,7 +173,18 @@ async def on_message(message):
                 await send_intro(result)
 
         else:
-            await message.author.send("Hmm, I don't have any record of you joining recently. If you are missing any roles, please contact a Mod or Admin.")
+            server = client.get_guild(config['server_id'])
+            channel = get(server.channels, name=config['intro_channel'])
+            intros = []
+            async for intro in channel.history():
+                if str(message.author.id) in intro.content or message.author.id == intro.author.id:
+                    intros.append(intro)
+                    break
+
+            if intros:
+                await message.author.send("It looks like you've already got an intro. If you are missing any roles or are having any issues, please contact a Mod or Admin.")
+            else:
+                await init_intro(message.author)
 
 if __name__ == '__main__':
     client.run(config['bot_token'])
