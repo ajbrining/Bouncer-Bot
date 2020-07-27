@@ -67,6 +67,19 @@ async def send_intro(data):
     await client.get_user(data.id).send("Okay, you're all set! Be sure to stop by #role-react so you can grab any additional roles you want.")        
     session.query(Intro).filter_by(id=data.id).delete()
 
+async def init_intro(user):
+    intro = Intro(id=user.id, question=1)
+
+    session.add(intro)
+    session.commit()
+
+    server = client.get_guild(config['server_id'])
+
+    await user.send("Hey there, welcome to **" + server.name + "**! Let's get your introduction taken care of so you can access the whole server. \n"
+                    + "I'm going to ask you 4 or 5 questions, and I'll post your answers as your introduction for everyone to see. \n"
+                    + "If you don't want to do that, there's no harm in leaving. Once you're gone I'll forget you were ever here!\n\n"
+                    + "First off, how old are you? (we wont post your age, only a label such as 'Minor' or '18+')")
+
 @client.event
 async def on_ready():
     print('Logged in as {0.user}'.format(client))
@@ -75,16 +88,8 @@ async def on_ready():
 
 @client.event
 async def on_member_join(member):
-    intro = Intro(id=member.id, question=1)
-    
-    session.add(intro)
-    session.commit()
+    await init_intro(member)
 
-    await member.send("Hey there, welcome to **" + member.guild.name + "**! Let's get your introduction taken care of so you can access the whole server. \n"
-                      + "I'm going to ask you 4 or 5 questions, and I'll post your answers as your introduction for everyone to see. \n"
-                      + "If you don't want to do that, there's no harm in leaving. Once you're gone I'll forget you were ever here!\n\n"
-                      + "First off, how old are you? (we wont post your age, only a label such as 'Minor' or '18+')")
- 
 @client.event
 async def on_member_remove(member): 
     session.query(Intro).filter_by(id=member.id).delete()
