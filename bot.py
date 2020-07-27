@@ -17,9 +17,9 @@ with open('config.yaml') as f:
 engine = create_engine('sqlite:///:memory:')
 Session = sessionmaker(bind=engine)
 session = Session()
-Base = declarative_base()
 
 # prepare the model for the intros table
+Base = declarative_base()
 class Intro(Base):
     __tablename__ = 'intros'
 
