@@ -2,3 +2,4 @@ config.yaml
 pyvenv.cfg
 lib/
 bin/
+*.swp
