@@ -12,4 +12,4 @@ This assists with moderating as it can prevent rudimentary "self-bot" raids from
 If you'd like to run this bot on your own, you are more than welcome to do so.
 
 You'll first want to copy or rename [example-config.yaml](example-config.yaml) to config.yaml, then add your bot token and the server ID that you'd like to use it with in the appropriate variables.
-From there, you should be able to start the bot with `python3 bot.py`, or if you have a virtual environment installed in the same directory, you can run `./start_bot.py`.
+Once you have the dependencies installed with `pip install -r requirements.txt`, you should be able to start the bot with `python3 bot.py`, or if you have a virtual environment installed in the same directory, you can run `./start_bot.py`.
