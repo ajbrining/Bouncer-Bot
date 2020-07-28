@@ -4,7 +4,7 @@ from yaml import load, FullLoader
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, Boolean
+from models import Intro, Server
 
 # create our client object
 client = discord.Client()
@@ -18,18 +18,6 @@ engine = create_engine('sqlite:///:memory:')
 Session = sessionmaker(bind=engine)
 memory = Session()
 
-# prepare the model for the intros table
-Base = declarative_base()
-class Intro(Base):
-    __tablename__ = 'intros'
-
-    id = Column(Integer, primary_key=True)
-    question = Column(Integer)
-    age = Column(Integer)
-    name = Column(String)
-    pronouns = Column(String)
-    about = Column(String)
-    nsfw = Column(Boolean)
 
 # perform all needed sql things that we've abstracted
 Base.metadata.create_all(engine)
