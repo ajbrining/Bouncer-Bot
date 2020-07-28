@@ -16,7 +16,7 @@ with open('config.yaml') as f:
 # initialize sqlite session in memory (doesn't need to write to disk at this time)
 engine = create_engine('sqlite:///:memory:')
 Session = sessionmaker(bind=engine)
-session = Session()
+memory = Session()
 
 # prepare the model for the intros table
 Base = declarative_base()
@@ -70,8 +70,8 @@ async def send_intro(data):
 async def init_intro(user):
     intro = Intro(id=user.id, question=1)
 
-    session.add(intro)
-    session.commit()
+    memory.add(intro)
+    memory.commit()
 
     server = client.get_guild(config['server_id'])
 
@@ -92,7 +92,7 @@ async def on_member_join(member):
 
 @client.event
 async def on_member_remove(member):
-    session.query(Intro).filter_by(id=member.id).delete()
+    memory.query(Intro).filter_by(id=member.id).delete()
     # TODO: look for their introduction and remove it if they have one
     channel = get(member.guild.channels, name=config['intro_channel'])
     async for message in channel.history():
@@ -102,7 +102,7 @@ async def on_member_remove(member):
 @client.event
 async def on_message(message):
     if type(message.channel) is discord.DMChannel and message.author != client.user:
-        query = session.query(Intro).filter_by(id=message.author.id)
+        query = memory.query(Intro).filter_by(id=message.author.id)
         result = query.first()
         if result:
             if result.question == 1:
@@ -138,25 +138,25 @@ async def on_message(message):
                         mod_message = mod_message.format(mods=mod_role.mention, user=message.author.mention, age=str(age))
                         await log_channel.send(mod_message)
 
-                    session.query(Intro).filter_by(id=message.author.id).update({'age': age, 'question': 2})
+                    memory.query(Intro).filter_by(id=message.author.id).update({'age': age, 'question': 2})
                     await message.author.send("What name would you like to be called?")
                 except ValueError:
                     await message.author.send("Please respond with a numeric value.")
             elif result.question == 2:
                 name = message.content
-                session.query(Intro).filter_by(id=message.author.id).update({'name': name, 'question': 3})
+                memory.query(Intro).filter_by(id=message.author.id).update({'name': name, 'question': 3})
                 await message.author.send("What are your preferred pronouns?")
             elif result.question == 3:
                 pronouns = message.content
-                session.query(Intro).filter_by(id=message.author.id).update({'pronouns': pronouns, 'question': 4})
+                memory.query(Intro).filter_by(id=message.author.id).update({'pronouns': pronouns, 'question': 4})
                 await message.author.send("Tell us about yourself in a sentence.")
             elif result.question == 4:
                 about = message.content
-                session.query(Intro).filter_by(id=message.author.id).update({'about': about, 'question': 5})
+                memory.query(Intro).filter_by(id=message.author.id).update({'about': about, 'question': 5})
                 if result.age >= 18:
                     await message.author.send("Do you want to access NSFW content? (a Mod/Admin can help if you change your mind)")
                 else:
-                    query = session.query(Intro).filter_by(id=message.author.id)
+                    query = memory.query(Intro).filter_by(id=message.author.id)
                     result = query.first()
                     await send_intro(result)
             elif result.question == 5:
