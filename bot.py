@@ -160,6 +160,8 @@ async def on_message(message):
                     result = query.first()
                     await send_intro(result)
             elif result.question == 5:
+                if result.age < 18:
+                    return
                 if message.content.lower() in config['yes_words']:
                     nsfw = True
                 elif message.content.lower() in config['no_words']:
