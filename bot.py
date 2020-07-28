@@ -20,6 +20,7 @@ memory = Session()
 
 
 # perform all needed sql things that we've abstracted
+Base = declarative_base()
 Base.metadata.create_all(engine)
 
 # posts the intro and is only called once all info has been collected
