@@ -6,8 +6,12 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, Boolean
 
+# set up intents
+intents = discord.Intents.default()
+intents.members = True
+
 # create our client object
-client = discord.Client()
+client = discord.Client(intents=intents)
 
 # load the configuration file
 with open('config.yaml') as f:
