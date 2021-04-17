@@ -13,11 +13,12 @@ client = discord.Client()
 with open('config.yaml') as f:
     config = load(f, Loader=FullLoader)
 
-# initialize sqlite session in memory (doesn't need to write to disk at this time)
+# initialize in-memory sqlite session
 memory_engine = create_engine('sqlite:///:memory:')
 Memory = sessionmaker(bind=memory_engine)
 memory = Memory()
 
+# initialize on-disk sqlite session
 storage_engine = create_engine('sqlite:///sqlite.db')
 Storage = sessionmaker(bind=storage_engine)
 storage = Storage()
