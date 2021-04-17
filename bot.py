@@ -48,7 +48,7 @@ async def send_intro(data):
     if data.age >= 18:
         age = '18+'
 
-        adult_role = get(server.roles, name=config['adult_role'])
+        adult_role = get(server.roles, id=server_config.adult_role)
         await member.add_roles(adult_role)
 
         if data.nsfw:
