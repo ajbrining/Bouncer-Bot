@@ -14,14 +14,18 @@ with open('config.yaml') as f:
     config = load(f, Loader=FullLoader)
 
 # initialize sqlite session in memory (doesn't need to write to disk at this time)
-engine = create_engine('sqlite:///:memory:')
-Session = sessionmaker(bind=engine)
-memory = Session()
+memory_engine = create_engine('sqlite:///:memory:')
+Memory = sessionmaker(bind=memory_engine)
+memory = Memory()
 
+storage_engine = create_engine('sqlite:///sqlite.db')
+Storage = sessionmaker(bind=storage_engine)
+storage = Storage()
 
 # perform all needed sql things that we've abstracted
 Base = declarative_base()
-Base.metadata.create_all(engine)
+Base.metadata.create_all(memory_engine)
+Base.metadata.create_all(storage_engine)
 
 # posts the intro and is only called once all info has been collected
 async def send_intro(data):
