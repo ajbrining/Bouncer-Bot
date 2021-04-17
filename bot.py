@@ -81,6 +81,16 @@ async def on_ready():
     await client.change_presence(activity=activity)
 
 @client.event
+async def on_guild_join(server): 
+    # TODO: add server to db
+    pass
+
+@client.event
+async def on_guild_remove(server):
+    # TODO: remove server from db
+    pass
+
+@client.event
 async def on_member_join(member):
     await init_intro(member)
 
