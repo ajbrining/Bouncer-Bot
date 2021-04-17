@@ -6,8 +6,12 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from models import Intro, Server
 
+# set up intents
+intents = discord.Intents.default()
+intents.members = True
+
 # create our client object
-client = discord.Client()
+client = discord.Client(intents=intents)
 
 # load the configuration file
 with open('config.yaml') as f:
@@ -164,6 +168,8 @@ async def on_message(message):
                     result = query.first()
                     await send_intro(result)
             elif result.question == 5:
+                if result.age < 18:
+                    return
                 if message.content.lower() in config['yes_words']:
                     nsfw = True
                 elif message.content.lower() in config['no_words']:
