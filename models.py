@@ -5,7 +5,10 @@ class Intro(Base):
     __tablename__ = 'intros'
 
     id = Column(Integer, primary_key=True)
+    server = Column(Integer, ForeingKey('server.id')
+
     question = Column(Integer)
+
     age = Column(Integer)
     name = Column(String)
     pronouns = Column(String)
@@ -17,12 +20,12 @@ class Server(Base):
 
     id = Column(Integer, primary_key=True)
 
-    intro_channel = Column(String)
-    log_channel = Column(String)
+    intro_channel = Column(Integer)
+    log_channel = Column(Integer)
 
-    mod_role = Column(String)
-    unveri_role = Column(String)
-    member_role = Column(String)
-    nsfw_role = Column(String)
-    minor_role = Column(String)
-    adult_role = Column(String)
+    mod_role = Column(Integer)
+    unveri_role = Column(Integer)
+    member_role = Column(Integer)
+    nsfw_role = Column(Integer)
+    minor_role = Column(Integer)
+    adult_role = Column(Integer)
