@@ -133,10 +133,11 @@ async def on_message(message):
                                                   + "You are more than welcome to rejoin once you are 13 or older.")
 
                         mod_message = "{mods}: {user} has been kicked for being underage."
-                        mod_message = mod_message.format(mods=mod_role.mention, user=message.author.mention)
+                        mod_message = mod_message.format(mods=mod_role.mention, user=member.mention)
                         await log_channel.send(mod_message)
 
                         await member.kick(reason="Under 13")
+
                         return
                     elif age > 100:
                         await message.author.send("Very funny, but I'd appreciate it if you gave me your real age.")
