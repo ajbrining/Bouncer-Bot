@@ -34,11 +34,14 @@ Base.metadata.create_all(storage_engine)
 
 # posts the intro and is only called once all info has been collected
 async def send_intro(data):
-    server = client.get_guild(config['server_id'])
+    server = client.get_guild(data.server)
     member = get(server.members, id=data.id)
 
-    member_role = get(server.roles, name=config['member_role'])
-    unveri_role = get(server.roles, name=config['unveri_role'])
+    query = storage.query(Server).filter_by(id=server.id)
+    server_config = query.first()
+
+    member_role = get(server.roles, id=server_config.member_role)
+    unveri_role = get(server.roles, id=server_config.unveri_role)
     await member.add_roles(member_role)
     await member.remove_roles(unveri_role)
 
@@ -49,29 +52,27 @@ async def send_intro(data):
         await member.add_roles(adult_role)
 
         if data.nsfw:
-            nsfw_role = get(server.roles, name=config['nsfw_role'])
+            nsfw_role = get(server.roles, id=server_config.nsfw_role)
             await member.add_roles(nsfw_role)
     else:
         age = 'Minor'
 
-        minor_role = get(server.roles, name=config['minor_role'])
+        minor_role = get(server.roles, id=server_config.minor_role)
         await member.add_roles(minor_role)
 
     message = "Welcome, {0}!\nName: {1}\nAge: {2}\nPronouns: {3}\nAbout Me: {4}"
     message = message.format(member.mention, data.name, age, data.pronouns, data.about)
-    channel = get(server.channels, name=config['intro_channel'])
+    channel = get(server.channels, id=server_config.intro_channel)
     await channel.send(message)
 
     await client.get_user(data.id).send("Okay, you're all set! Be sure to stop by #role-react so you can grab any additional roles you want.")
     session.query(Intro).filter_by(id=data.id).delete()
 
-async def init_intro(user):
-    intro = Intro(id=user.id, question=1)
+async def init_intro(user, server):
+    intro = Intro(id=user.id, server=server.id, question=1)
 
     memory.add(intro)
     memory.commit()
-
-    server = client.get_guild(config['server_id'])
 
     await user.send("Hey there, welcome to **" + server.name + "**! Let's get your introduction taken care of so you can access the whole server. \n"
                     + "I'm going to ask you 4 or 5 questions, and I'll post your answers as your introduction for everyone to see. \n"
@@ -96,13 +97,14 @@ async def on_guild_remove(server):
 
 @client.event
 async def on_member_join(member):
-    await init_intro(member)
+    await init_intro(member, member.guild)
 
 @client.event
 async def on_member_remove(member):
     memory.query(Intro).filter_by(id=member.id).delete()
-    # TODO: look for their introduction and remove it if they have one
-    channel = get(member.guild.channels, name=config['intro_channel'])
+    query = storage.query(Server).filter_by(id=member.guild.id)
+    server_config = query.first()
+    channel = get(member.guild.channels, name=server_config.intro_channel)
     async for message in channel.history():
         if member.mentioned_in(message) or member.id == message.author.id:
             await message.delete()
@@ -116,9 +118,14 @@ async def on_message(message):
             if result.question == 1:
                 try:
                     age = int(message.content)
-                    server = client.get_guild(config['server_id'])
-                    log_channel = get(server.channels, name=config['log_channel'])
-                    mod_role = get(server.roles, name=config['mod_role'])
+
+                    query = storage.query(Server).filter_by(id=result.server)
+                    server_config = query.first()
+
+                    server = client.get_guild(server_config.id)
+
+                    log_channel = get(server.channels, id=server_config.log_channel)
+                    mod_role = get(server.roles, id=server_config.mod_role)
                     member = get(server.members, id=message.author.id)
                     if age < 13:
                         await message.author.send("I'm sorry, but it is against Discord's Terms of Service for people under the age of 13 to use Discord.\n"
@@ -183,6 +190,7 @@ async def on_message(message):
                 await send_intro(result)
 
         else:
+            # TODO: fix this
             server = client.get_guild(config['server_id'])
             channel = get(server.channels, name=config['intro_channel'])
             intros = []
