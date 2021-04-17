@@ -66,7 +66,7 @@ async def send_intro(data):
     await channel.send(message)
 
     await client.get_user(data.id).send("Okay, you're all set! Be sure to stop by #role-react so you can grab any additional roles you want.")
-    session.query(Intro).filter_by(id=data.id).delete()
+    memory.query(Intro).filter_by(id=data.id).delete()
 
 async def init_intro(user, server):
     intro = Intro(id=user.id, server=server.id, question=1)
