@@ -1,5 +1,6 @@
 import discord
 from discord.utils import get
+from discord.ext import commands
 from yaml import load, FullLoader
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -12,6 +13,9 @@ intents.members = True
 
 # create our client object
 client = discord.Client(intents=intents)
+
+# initialize the command utility and set a prefix
+bot = commands.Bot(command_prefix=commands.when_mentioned)
 
 # load the configuration file
 with open('config.yaml') as f:
@@ -204,6 +208,93 @@ async def on_message(message):
                 await message.author.send("It looks like you've already got an intro. If you are missing any roles or are having any issues, please contact a Mod or Admin.")
             else:
                 await init_intro(message.author)
+
+@bot.command(name='help')
+async def _help(context):
+    help_text = "**Commands**:\n\n" \
+                + "**set_channel**\n" \
+                + "> **Description**: Sets the any of the following channel settings:\n" \
+                + ">     *intros* - the channel that the introductions will be posted in\n" \
+                + ">     *logs* - the channel where messages to moderators will go\n" \
+                + "> **Example**: @Bouncer Bot set_channel intros introductions\n\n" \
+                + "**set_role**\n" \
+                + "> **WARNING: Be sure to put the name of the role in quotes**\n" \
+                + "> **Description**: Sets the any of the following role settings:\n" \
+                + ">     *moderator* - the role that is given to mods, will be used for @ mentions\n" \
+                + ">     *unverified* - the role for those who have not been verified, will be removed upon introduction\n" \
+                + ">     *verified* - the role to be given to those who give an introduction\n" \
+                + ">     *nsfw* - the role that should be given to those who wish to access NSFW channels\n" \
+                + ">     *minor* - the role that is given to those under 18\n" \
+                + ">     *adult* - the role that is given to those over 18\n" \
+                + "> **Example**: @Bouncer Bot set minor \"Under 18\"\n\n" \
+                + "**status**\n" \
+                + "> **Description**: Shows all settings and what they are set to. Takes no arguments. " \
+                + "> **Example**: @Bouncer Bot status"
+
+    await context.send(help_text)
+
+@bot.command()
+async def set_channel(context, setting, *, channel: discord.TextChannel):
+    if setting == "intros":
+        storage.query(Server).filter_by(id=context.guild.id).update(intro_channel=channel.id)
+    elif setting == "logs":
+        storage.query(Server).filter_by(id=context.guild.id).update(log_channel=channel.id)
+    else:
+        await context.send("The setting \"{0}\" does not exist.".format(setting))
+        return
+
+    await context.send("Success: {0} channel set to {1}.".format(setting, channel.mention))
+
+@set_channel.error
+async def channel_error(context, error):
+    if isinstance(error, commands.ChannelNotFound)
+        await context.send("**ERROR**: channel \"{0}\" does not exist in this server.".format(error.args))
+
+@bot.command()
+async def set_role(context, setting, *, role: discord.Role):
+    if setting == "moderator":
+        storage.query(Server).filter_by(id=context.guild.id).update(mod_role=role.id)
+    elif setting == "unverified":
+        storage.query(Server).filter_by(id=context.guild.id).update(unveri_role=role.id)
+    elif setting == "verified":
+        storage.query(Server).filter_by(id=context.guild.id).update(member_role=role.id)
+    elif setting == "nsfw":
+        storage.query(Server).filter_by(id=context.guild.id).update(nsfw_role=role.id)
+    elif setting == "minor":
+        storage.query(Server).filter_by(id=context.guild.id).update(minor_role=role.id)
+    elif setting == "adult":
+        storage.query(Server).filter_by(id=context.guild.id).update(adult_role=role.id)
+    else:
+        await context.send("The setting \"{0}\" does not exist.".format(setting))
+        return
+
+    await context.send("Success: {0} role set to {1}.".format(setting, channel.mention))
+    
+@set_role.error
+async def role_error(context, error):
+    if isinstance(error, commands.RoleNotFound)
+        await context.send("**ERROR**: channel \"{0}\" does not exist in this server.".format(error.args))
+
+@bot.command()
+async def status(context):
+    server_config = storage.query(Server).filter_by(id=context.guild.id).first()
+    delattr(server_config, id)
+
+    message = ''
+    for setting, value in server_config.__dict__:
+        if not value:
+            message += '**{0} is not set!**\n'.format(setting)
+        else:
+            if 'role' in setting:
+                role = get(context.guild.roles, id=value)
+                message += '{0} is set to {1}.\n'.format(setting, role.mention)
+            else:
+                channel = get(context.guild.channels, id=value)
+                message += '{0} is set to {1}.\n'.format(setting, channel.mention)
+
+    message = message[:-1:] # remove the trailing linebreak
+
+    await context.send(message)
 
 if __name__ == '__main__':
     client.run(config['bot_token'])
