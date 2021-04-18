@@ -292,7 +292,7 @@ async def _help(context):
     await context.send(help_text)
 
 @client.command()
-async def set_channel(context, setting, *, channel: discord.TextChannel):
+async def set_channel(context, setting, channel: discord.TextChannel):
     if setting == "intros":
         with storage_scope() as session:
             session.query(Server).filter_by(id=context.guild.id).update({'intro_channel': channel.id})
@@ -308,12 +308,12 @@ async def set_channel(context, setting, *, channel: discord.TextChannel):
 @set_channel.error
 async def channel_error(context, error):
     if isinstance(error, commands.ChannelNotFound):
-        await context.send("**ERROR**: channel \"{0}\" does not exist in this server.".format(error.args))
+        await context.send("**ERROR**: " + error.args[0])
     else:
         raise error
 
 @client.command()
-async def set_role(context, setting, *, role: discord.Role):
+async def set_role(context, setting, role: discord.Role):
     if setting == "moderator":
         with storage_scope() as session:
             session.query(Server).filter_by(id=context.guild.id).update({'mod_role': role.id})
@@ -336,12 +336,12 @@ async def set_role(context, setting, *, role: discord.Role):
         await context.send("The setting \"{0}\" does not exist.".format(setting))
         return
 
-    await context.send("Success: {0} role set to {1}.".format(setting, channel.mention))
-    
+    await context.send("Success: {0} role set to {1}.".format(setting, role.mention))
+
 @set_role.error
 async def role_error(context, error):
     if isinstance(error, commands.RoleNotFound):
-        await context.send("**ERROR**: channel \"{0}\" does not exist in this server.".format(error.args))
+        await context.send("**ERROR**: " + error.args[0])
     else:
         raise error
 
