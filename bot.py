@@ -245,7 +245,7 @@ async def _help(context):
                 + ">     *adult* - the role that is given to those over 18\n" \
                 + "> **Example**: @Bouncer Bot set minor \"Under 18\"\n\n" \
                 + "**status**\n" \
-                + "> **Description**: Shows all settings and what they are set to. Takes no arguments. " \
+                + "> **Description**: Shows all settings and what they are set to. Takes no arguments.\n" \
                 + "> **Example**: @Bouncer Bot status"
 
     await context.send(help_text)
