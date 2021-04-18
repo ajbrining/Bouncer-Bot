@@ -91,13 +91,15 @@ async def on_ready():
 
 @client.event
 async def on_guild_join(server): 
-    # TODO: add server to db
-    pass
+    server_config = Server(id=server.id)
+
+    storage.add(server_config)
+    storage.commit()
 
 @client.event
 async def on_guild_remove(server):
-    # TODO: remove server from db
-    pass
+    storage.query(Server).filter_by(id=server.id).delete()
+    memory.query(Intro).filter_by(server=server.id).delete()
 
 @client.event
 async def on_member_join(member):
