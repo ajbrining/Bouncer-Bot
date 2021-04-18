@@ -276,7 +276,7 @@ async def _help(context):
                 + ">     *logs* - the channel where messages to moderators will go\n" \
                 + "> **Example**: @Bouncer Bot set_channel intros introductions\n\n" \
                 + "**set_role**\n" \
-                + "> **WARNING: Be sure to put the name of the role in quotes**\n" \
+                + "> **WARNING: Be sure to @ the role or put the name of the role in quotes**\n" \
                 + "> **Description**: Sets the any of the following role settings:\n" \
                 + ">     *moderator* - the role that is given to mods, will be used for @ mentions\n" \
                 + ">     *unverified* - the role for those who have not been verified, will be removed upon introduction\n" \
