@@ -12,10 +12,9 @@ intents = discord.Intents.default()
 intents.members = True
 
 # create our client object
-client = discord.Client(intents=intents)
-
-# initialize the command utility and set a prefix
-bot = commands.Bot(command_prefix=commands.when_mentioned)
+client = commands.Bot(command_prefix=commands.when_mentioned,
+                      help_command=None,
+                      intents=intents)
 
 # load the configuration file
 with open('config.yaml') as f:
@@ -223,7 +222,7 @@ async def on_message(message):
             else:
                 await message.author.send("Do I know you? It looks like we aren't in any servers together.")
 
-@bot.command(name='help')
+@client.command(name='help')
 async def _help(context):
     help_text = "**Commands**:\n\n" \
                 + "**set_channel**\n" \
@@ -247,7 +246,7 @@ async def _help(context):
 
     await context.send(help_text)
 
-@bot.command()
+@client.command()
 async def set_channel(context, setting, *, channel: discord.TextChannel):
     if setting == "intros":
         storage.query(Server).filter_by(id=context.guild.id).update(intro_channel=channel.id)
@@ -264,7 +263,7 @@ async def channel_error(context, error):
     if isinstance(error, commands.ChannelNotFound):
         await context.send("**ERROR**: channel \"{0}\" does not exist in this server.".format(error.args))
 
-@bot.command()
+@client.command()
 async def set_role(context, setting, *, role: discord.Role):
     if setting == "moderator":
         storage.query(Server).filter_by(id=context.guild.id).update(mod_role=role.id)
@@ -289,7 +288,7 @@ async def role_error(context, error):
     if isinstance(error, commands.RoleNotFound):
         await context.send("**ERROR**: channel \"{0}\" does not exist in this server.".format(error.args))
 
-@bot.command()
+@client.command()
 async def status(context):
     server_config = storage.query(Server).filter_by(id=context.guild.id).first()
     delattr(server_config, id)
