@@ -116,7 +116,7 @@ async def on_ready():
     await client.change_presence(activity=activity)
 
 @client.event
-async def on_guild_join(server): 
+async def on_guild_join(server):
     server_config = Server(id=server.id)
 
     with storage_scope() as session:
@@ -237,7 +237,7 @@ async def on_message(message):
 
                 await send_intro(result)
 
-        else: 
+        else:
             test_id = 0
             server = None
             while not server:
