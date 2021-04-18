@@ -115,7 +115,11 @@ async def on_member_remove(member):
 
 @client.event
 async def on_message(message):
-    if type(message.channel) is discord.DMChannel and message.author != client.user:
+    if type(message.channel) is not discord.DMChannel:
+        await client.process_commands(message)
+        return
+
+    if message.author != client.user:
         query = memory.query(Intro).filter_by(id=message.author.id)
         result = query.first()
         if result:
