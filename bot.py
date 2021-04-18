@@ -196,20 +196,33 @@ async def on_message(message):
 
                 await send_intro(result)
 
-        else:
-            # TODO: fix this
-            server = client.get_guild(config['server_id'])
-            channel = get(server.channels, name=config['intro_channel'])
-            intros = []
-            async for intro in channel.history():
-                if str(message.author.id) in intro.content or message.author.id == intro.author.id:
-                    intros.append(intro)
+        else: 
+            test_id = 0
+            server = None
+            while not server:
+                server_config = storage.query(Server).order_by(Server.id.asc().filter(Server.id > test_id).first()
+                if not server_config:
                     break
 
-            if intros:
-                await message.author.send("It looks like you've already got an intro. If you are missing any roles or are having any issues, please contact a Mod or Admin.")
+                test_id = server_config.id
+                test_server =  client.get_guild(test_id)
+                if test_server.get_member(message.author.id):
+                    server = test_server
+
+            if server:
+                channel = get(server.channels, id=server_config.intro_channel)
+                intros = []
+                async for intro in channel.history():
+                    if str(message.author.id) in intro.content or message.author.id == intro.author.id:
+                        intros.append(intro)
+                        break
+
+                if intros:
+                    await message.author.send("It looks like you've already got an intro. If you are missing any roles or are having any issues, please contact a Mod or Admin.")
+                else:
+                    await init_intro(message.author)
             else:
-                await init_intro(message.author)
+                await message.author.send("Do I know you? It looks like we aren't in any servers together.")
 
 @bot.command(name='help')
 async def _help(context):
