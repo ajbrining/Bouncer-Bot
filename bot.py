@@ -1,11 +1,13 @@
 import discord
 from discord.utils import get
 from discord.ext import commands
+from os import path
 from yaml import load, FullLoader
+from contextlib import contextmanager
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
-from models import Intro, Server, Base
+from models import Intro, Server, MemoryBase, StorageBase
 
 # set up intents
 intents = discord.Intents.default()
@@ -22,25 +24,50 @@ with open('config.yaml') as f:
 
 # initialize in-memory sqlite session
 memory_engine = create_engine('sqlite:///:memory:')
+MemoryBase.metadata.create_all(memory_engine)
 Memory = sessionmaker(bind=memory_engine)
-memory = Memory()
 
 # initialize on-disk sqlite session
+db_initialized = path.exists('sqlite.db')
 storage_engine = create_engine('sqlite:///sqlite.db')
-Storage = sessionmaker(bind=storage_engine)
-storage = Storage()
 
-# perform all needed sql things that we've abstracted
-Base.metadata.create_all(memory_engine)
-Base.metadata.create_all(storage_engine)
+if not db_initialized:
+    StorageBase.metadata.create_all(storage_engine)
+
+Storage = sessionmaker(bind=storage_engine)
+
+@contextmanager
+def memory_scope():
+    session = Memory()
+    try:
+        yield session
+        session.commit()
+    except:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+@contextmanager
+def storage_scope():
+    session = Storage()
+    try:
+        yield session
+        session.commit()
+    except:
+        session.rollback()
+        raise
+    finally:
+        session.close()
 
 # posts the intro and is only called once all info has been collected
 async def send_intro(data):
     server = client.get_guild(data.server)
     member = get(server.members, id=data.id)
 
-    query = storage.query(Server).filter_by(id=server.id)
-    server_config = query.first()
+    server_config = None
+    with storage_scope() as session:
+        server_config = session.query(Server).filter_by(id=server.id).first()
 
     member_role = get(server.roles, id=server_config.member_role)
     unveri_role = get(server.roles, id=server_config.unveri_role)
@@ -68,13 +95,14 @@ async def send_intro(data):
     await channel.send(message)
 
     await client.get_user(data.id).send("Okay, you're all set! Be sure to stop by #role-react so you can grab any additional roles you want.")
-    memory.query(Intro).filter_by(id=data.id).delete()
+    with memory_scope() as session:
+        session.query(Intro).filter_by(id=data.id).delete()
 
 async def init_intro(user, server):
     intro = Intro(id=user.id, server=server.id, question=1)
 
-    memory.add(intro)
-    memory.commit()
+    with memory_scope() as session:
+        session.add(intro)
 
     await user.send("Hey there, welcome to **" + server.name + "**! Let's get your introduction taken care of so you can access the whole server. \n"
                     + "I'm going to ask you 4 or 5 questions, and I'll post your answers as your introduction for everyone to see. \n"
@@ -91,13 +119,15 @@ async def on_ready():
 async def on_guild_join(server): 
     server_config = Server(id=server.id)
 
-    storage.add(server_config)
-    storage.commit()
+    with storage_scope() as session:
+        session.add(server_config)
 
 @client.event
 async def on_guild_remove(server):
-    storage.query(Server).filter_by(id=server.id).delete()
-    memory.query(Intro).filter_by(server=server.id).delete()
+    with storage_scope() as session:
+        session.query(Server).filter_by(id=server.id).delete()
+    with memory_scope() as session:
+        session.query(Intro).filter_by(server=server.id).delete()
 
 @client.event
 async def on_member_join(member):
@@ -105,8 +135,10 @@ async def on_member_join(member):
 
 @client.event
 async def on_member_remove(member):
-    memory.query(Intro).filter_by(id=member.id).delete()
-    query = storage.query(Server).filter_by(id=member.guild.id)
+    with memory_scope() as session:
+        session.query(Intro).filter_by(id=member.id).delete()
+    with storage_scope as session:
+        query = session.query(Server).filter_by(id=member.guild.id)
     server_config = query.first()
     channel = get(member.guild.channels, name=server_config.intro_channel)
     async for message in channel.history():
@@ -120,15 +152,17 @@ async def on_message(message):
         return
 
     if message.author != client.user:
-        query = memory.query(Intro).filter_by(id=message.author.id)
-        result = query.first()
+        result = None
+        with memory_scope() as session:
+            result = session.query(Intro).filter_by(id=message.author.id).first()
         if result:
             if result.question == 1:
                 try:
                     age = int(message.content)
 
-                    query = storage.query(Server).filter_by(id=result.server)
-                    server_config = query.first()
+                    server_config = None
+                    with storage_scope() as session:
+                        server_config = session.query(Server).filter_by(id=result.server).first()
 
                     server = client.get_guild(server_config.id)
 
@@ -162,26 +196,31 @@ async def on_message(message):
                         mod_message = mod_message.format(mods=mod_role.mention, user=message.author.mention, age=str(age))
                         await log_channel.send(mod_message)
 
-                    memory.query(Intro).filter_by(id=message.author.id).update({'age': age, 'question': 2})
+                    with memory_scope() as session:
+                        session.query(Intro).filter_by(id=message.author.id).update({'age': age, 'question': 2})
                     await message.author.send("What name would you like to be called?")
                 except ValueError:
                     await message.author.send("Please respond with a numeric value.")
             elif result.question == 2:
                 name = message.content
-                memory.query(Intro).filter_by(id=message.author.id).update({'name': name, 'question': 3})
+                with memory_scope() as session:
+                    session.query(Intro).filter_by(id=message.author.id).update({'name': name, 'question': 3})
                 await message.author.send("What are your preferred pronouns?")
             elif result.question == 3:
                 pronouns = message.content
-                memory.query(Intro).filter_by(id=message.author.id).update({'pronouns': pronouns, 'question': 4})
+                with memory_scope() as session:
+                    session.query(Intro).filter_by(id=message.author.id).update({'pronouns': pronouns, 'question': 4})
                 await message.author.send("Tell us about yourself in a sentence.")
             elif result.question == 4:
                 about = message.content
-                memory.query(Intro).filter_by(id=message.author.id).update({'about': about, 'question': 5})
+                with memory_scope() as session:
+                    session.query(Intro).filter_by(id=message.author.id).update({'about': about, 'question': 5})
                 if result.age >= 18:
                     await message.author.send("Do you want to access NSFW content? (a Mod/Admin can help if you change your mind)")
                 else:
-                    query = memory.query(Intro).filter_by(id=message.author.id)
-                    result = query.first()
+                    result = None
+                    with memory_scope() as session:
+                        result = session.query(Intro).filter_by(id=message.author.id).first()
                     await send_intro(result)
             elif result.question == 5:
                 if result.age < 18:
@@ -202,7 +241,9 @@ async def on_message(message):
             test_id = 0
             server = None
             while not server:
-                server_config = storage.query(Server).order_by(Server.id.asc().filter(Server.id > test_id).first())
+                server_config = None
+                with storage_scope as session:
+                    server_config = session.query(Server).order_by(Server.id.asc().filter(Server.id > test_id)).first()
                 if not server_config:
                     break
 
@@ -253,9 +294,11 @@ async def _help(context):
 @client.command()
 async def set_channel(context, setting, *, channel: discord.TextChannel):
     if setting == "intros":
-        storage.query(Server).filter_by(id=context.guild.id).update(intro_channel=channel.id)
+        with storage_scope() as session:
+            session.query(Server).filter_by(id=context.guild.id).update({'intro_channel': channel.id})
     elif setting == "logs":
-        storage.query(Server).filter_by(id=context.guild.id).update(log_channel=channel.id)
+        with storage_scope() as session:
+            session.query(Server).filter_by(id=context.guild.id).update({'log_channel': channel.id})
     else:
         await context.send("The setting \"{0}\" does not exist.".format(setting))
         return
@@ -272,17 +315,23 @@ async def channel_error(context, error):
 @client.command()
 async def set_role(context, setting, *, role: discord.Role):
     if setting == "moderator":
-        storage.query(Server).filter_by(id=context.guild.id).update(mod_role=role.id)
+        with storage_scope() as session:
+            session.query(Server).filter_by(id=context.guild.id).update({'mod_role': role.id})
     elif setting == "unverified":
-        storage.query(Server).filter_by(id=context.guild.id).update(unveri_role=role.id)
+        with storage_scope() as session:
+            session.query(Server).filter_by(id=context.guild.id).update({'unveri_role': role.id})
     elif setting == "verified":
-        storage.query(Server).filter_by(id=context.guild.id).update(member_role=role.id)
+        with storage_scope() as session:
+            session.query(Server).filter_by(id=context.guild.id).update({'member_role': role.id})
     elif setting == "nsfw":
-        storage.query(Server).filter_by(id=context.guild.id).update(nsfw_role=role.id)
+        with storage_scope() as session:
+            session.query(Server).filter_by(id=context.guild.id).update({'nsfw_role': role.id})
     elif setting == "minor":
-        storage.query(Server).filter_by(id=context.guild.id).update(minor_role=role.id)
+        with storage_scope() as session:
+            session.query(Server).filter_by(id=context.guild.id).update({'minor_role': role.id})
     elif setting == "adult":
-        storage.query(Server).filter_by(id=context.guild.id).update(adult_role=role.id)
+        with storage_scope() as session:
+            session.query(Server).filter_by(id=context.guild.id).update({'adult_role': role.id})
     else:
         await context.send("The setting \"{0}\" does not exist.".format(setting))
         return
@@ -298,7 +347,9 @@ async def role_error(context, error):
 
 @client.command()
 async def status(context):
-    server_config = storage.query(Server).filter_by(id=context.guild.id).first()
+    server_config = None
+    with storage_scope() as session
+        server_config = session.query(Server).filter_by(id=context.guild.id).first()
     delattr(server_config, 'id')
     delattr(server_config, '_sa_instance_state')
 

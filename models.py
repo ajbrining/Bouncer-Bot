@@ -2,10 +2,9 @@ from sqlalchemy import Column, Integer, String, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 
 
-Base = declarative_base()
+MemoryBase = declarative_base()
 
-
-class Intro(Base):
+class Intro(MemoryBase):
     __tablename__ = 'intros'
 
     id = Column(Integer, primary_key=True)
@@ -19,7 +18,10 @@ class Intro(Base):
     about = Column(String)
     nsfw = Column(Boolean)
 
-class Server(Base):
+
+StorageBase = declarative_base()
+
+class Server(StorageBase):
     __tablename__ = 'servers'
 
     id = Column(Integer, primary_key=True)
