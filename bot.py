@@ -199,7 +199,7 @@ async def on_message(message):
             test_id = 0
             server = None
             while not server:
-                server_config = storage.query(Server).order_by(Server.id.asc().filter(Server.id > test_id).first()
+                server_config = storage.query(Server).order_by(Server.id.asc().filter(Server.id > test_id).first())
                 if not server_config:
                     break
 
@@ -261,7 +261,7 @@ async def set_channel(context, setting, *, channel: discord.TextChannel):
 
 @set_channel.error
 async def channel_error(context, error):
-    if isinstance(error, commands.ChannelNotFound)
+    if isinstance(error, commands.ChannelNotFound):
         await context.send("**ERROR**: channel \"{0}\" does not exist in this server.".format(error.args))
 
 @bot.command()
@@ -286,7 +286,7 @@ async def set_role(context, setting, *, role: discord.Role):
     
 @set_role.error
 async def role_error(context, error):
-    if isinstance(error, commands.RoleNotFound)
+    if isinstance(error, commands.RoleNotFound):
         await context.send("**ERROR**: channel \"{0}\" does not exist in this server.".format(error.args))
 
 @bot.command()
