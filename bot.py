@@ -5,7 +5,7 @@ from yaml import load, FullLoader
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
-from models import Intro, Server
+from models import Intro, Server, Base
 
 # set up intents
 intents = discord.Intents.default()
@@ -32,7 +32,6 @@ Storage = sessionmaker(bind=storage_engine)
 storage = Storage()
 
 # perform all needed sql things that we've abstracted
-Base = declarative_base()
 Base.metadata.create_all(memory_engine)
 Base.metadata.create_all(storage_engine)
 
