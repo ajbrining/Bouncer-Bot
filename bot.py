@@ -266,6 +266,8 @@ async def set_channel(context, setting, *, channel: discord.TextChannel):
 async def channel_error(context, error):
     if isinstance(error, commands.ChannelNotFound):
         await context.send("**ERROR**: channel \"{0}\" does not exist in this server.".format(error.args))
+    else:
+        raise error
 
 @client.command()
 async def set_role(context, setting, *, role: discord.Role):
@@ -291,6 +293,8 @@ async def set_role(context, setting, *, role: discord.Role):
 async def role_error(context, error):
     if isinstance(error, commands.RoleNotFound):
         await context.send("**ERROR**: channel \"{0}\" does not exist in this server.".format(error.args))
+    else:
+        raise error
 
 @client.command()
 async def status(context):
