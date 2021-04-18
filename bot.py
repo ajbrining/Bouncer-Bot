@@ -295,10 +295,11 @@ async def role_error(context, error):
 @client.command()
 async def status(context):
     server_config = storage.query(Server).filter_by(id=context.guild.id).first()
-    delattr(server_config, id)
+    delattr(server_config, 'id')
+    delattr(server_config, '_sa_instance_state')
 
     message = ''
-    for setting, value in server_config.__dict__:
+    for setting, value in server_config.__dict__.items():
         if not value:
             message += '**{0} is not set!**\n'.format(setting)
         else:
