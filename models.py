@@ -9,7 +9,7 @@ class Intro(Base):
     __tablename__ = 'intros'
 
     id = Column(Integer, primary_key=True)
-    server = Column(Integer, ForeingKey('server.id')
+    server = Column(Integer)
 
     question = Column(Integer)
 
