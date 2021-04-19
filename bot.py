@@ -68,9 +68,8 @@ async def send_intro(data):
     with storage_scope() as session:
         server_config = session.query(Server).filter_by(id=server.id).first()
 
-    member_role = get(server.roles, id=server_config.member_role)
+    verified_role = get(server.roles, id=server_config.verified_role)
     unveri_role = get(server.roles, id=server_config.unveri_role)
-    await member.add_roles(member_role)
     await member.remove_roles(unveri_role)
 
     if data.age >= 18:

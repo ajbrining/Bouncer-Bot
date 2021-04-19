@@ -31,7 +31,7 @@ class Server(StorageBase):
 
     mod_role = Column(Integer)
     unveri_role = Column(Integer)
-    member_role = Column(Integer)
+    verified_role = Column(Integer)
     nsfw_role = Column(Integer)
     minor_role = Column(Integer)
     adult_role = Column(Integer)
