@@ -258,7 +258,7 @@ async def on_message(message):
                 if intros:
                     await message.author.send("It looks like you've already got an intro. If you are missing any roles or are having any issues, please contact a Mod or Admin.")
                 else:
-                    await init_intro(message.author)
+                    await init_intro(message.author, server)
             else:
                 await message.author.send("Do I know you? It looks like we aren't in any servers together.")
 
