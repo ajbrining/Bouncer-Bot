@@ -3,3 +3,5 @@ pyvenv.cfg
 lib/
 bin/
 *.swp
+*.db
+__pycache__/

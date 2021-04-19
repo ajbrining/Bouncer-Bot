@@ -2,16 +2,6 @@ bot_token: 'TOKEN_GOES_HERE'
 
 server_id: SERVER_ID_GOES_HERE
 
-intro_channel: 'introductions'
-log_channel:   'bouncer-logs'
-
-mod_role:    "Moderator"
-unveri_role: "Unverified"
-member_role: "Member"
-nsfw_role:   "Lewd Crew"
-minor_role:  "Minor"
-adult_role:  "Adult"
-
 yes_words:
   - 'yah'
   - 'yas'
