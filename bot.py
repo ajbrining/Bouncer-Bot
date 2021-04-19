@@ -70,7 +70,9 @@ async def send_intro(data):
 
     verified_role = get(server.roles, id=server_config.verified_role)
     unveri_role = get(server.roles, id=server_config.unveri_role)
-    await member.remove_roles(unveri_role)
+    await member.add_roles(verified_role)
+    if unveri_role is not None:
+        await member.remove_roles(unveri_role)
 
     if data.age >= 18:
         age = '18+'
