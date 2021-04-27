@@ -125,7 +125,23 @@ async def on_message(message):
 
     if message.author != client.user:
         intro = intros.find_one({'_id': message.author.id})
-        if intro:
+        if not intro:
+            found_server = None
+            for server in message.author.mutual_guilds:
+                server_config = servers.find_one({'_id': server.id})
+                channel = get(server.channels, id=server_config['intro_channel'])
+
+                posted_intros = []
+                async for post in channel.history()
+                    if str(message.author.id) in post.content or message.author.id == post.author.id:
+                        posted_intros.append(intro)
+                        break
+                if not posted_intros:
+                    init_intro(message.author, server)
+
+            if not found_server:
+                await message.author.send("It looks like you've already got an intro. If you are missing any roles or are having any issues, please contact a Mod or Admin.")
+        else:
             if intro['question'] == 1:
                 try:
                     age = int(message.content)
@@ -196,32 +212,6 @@ async def on_message(message):
                 intros.update_one({'_id': message.author.id}, {'$set': {'nsfw': nsfw}})
 
                 await send_intro(message.author.id)
-
-        else:
-            test_id = 0
-            server = None
-            while not server:
-                server_config = servers.find_one({'_id': {'$gt': test_id}}, sort=pymongo.ASCENDING)
-                test_id = server_config['_id']
-
-                test_server =  client.get_guild(test_id)
-                if test_server.get_member(message.author.id):
-                    server = test_server
-
-            if server:
-                channel = get(server.channels, id=server_config['intro_channel'])
-                posted_intros = []
-                async for post in channel.history():
-                    if str(message.author.id) in post.content or message.author.id == post.author.id:
-                        posted_intros.append(intro)
-                        break
-
-                if posted_intros:
-                    await message.author.send("It looks like you've already got an intro. If you are missing any roles or are having any issues, please contact a Mod or Admin.")
-                else:
-                    await init_intro(message.author, server)
-            else:
-                await message.author.send("Do I know you? It looks like we aren't in any servers together.")
 
 @client.command(name='help')
 async def _help(context):
