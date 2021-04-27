@@ -1,13 +1,9 @@
 import discord
 from discord.utils import get
 from discord.ext import commands
-from os import path
 from yaml import load, FullLoader
-from contextlib import contextmanager
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
-from models import Intro, Server, MemoryBase, StorageBase
+import pymongo
+
 
 # set up intents
 intents = discord.Intents.default()
@@ -22,54 +18,36 @@ client = commands.Bot(command_prefix=commands.when_mentioned,
 with open('config.yaml') as f:
     config = load(f, Loader=FullLoader)
 
-# initialize in-memory sqlite session
-memory_engine = create_engine('sqlite:///:memory:')
-MemoryBase.metadata.create_all(memory_engine)
-Memory = sessionmaker(bind=memory_engine, expire_on_commit=False)
+# connect to mongodb, get our database, and load collections
+mongo = pymongo.MongoClient()
+db = mongo.bouncer_bot
+intros = db.intros
+servers = db.servers
 
-# initialize on-disk sqlite session
-db_initialized = path.exists('sqlite.db')
-storage_engine = create_engine('sqlite:///sqlite.db')
-if not db_initialized:
-    StorageBase.metadata.create_all(storage_engine)
-Storage = sessionmaker(bind=storage_engine, expire_on_commit=False)
-
-@contextmanager
-def memory_scope():
-    session = Memory()
-    try:
-        yield session
-        session.commit()
-    except:
-        session.rollback()
-        raise
-    finally:
-        session.expunge_all()
-        session.close()
-
-@contextmanager
-def storage_scope():
-    session = Storage()
-    try:
-        yield session
-        session.commit()
-    except:
-        session.rollback()
-        raise
-    finally:
-        session.expunge_all()
-        session.close()
+# a list of the settings that can be stored in the DB
+settings = ['intro_channel', 'log_channel', 'mod_role',
+            'unveri_role', 'verified_role', 'nsfw_role',
+            'minor_role', 'adult_role']
+alias = {'intros': 'intro_channel',
+         'logs': 'log_channel',
+         'moderator': 'mod_role',
+         'unverified': 'unveri_role',
+         'verified': 'verified_role',
+         'nsfw': 'nsfw_role',
+         'minor': 'minor_role',
+         'adult': 'adult_role'}
 
 # posts the intro and is only called once all info has been collected
-async def send_intro(data):
-    server = client.get_guild(data.server)
-    member = get(server.members, id=data.id)
+async def send_intro(user_id):
+    intro = intros.find_one({'_id': user_id})
 
-    with storage_scope() as session:
-        server_config = session.query(Server).filter_by(id=server.id).first()
+    server = client.get_guild(intro['server'])
+    member = get(server.members, id=user_id)
 
-    verified_role = get(server.roles, id=server_config.verified_role)
-    unveri_role = get(server.roles, id=server_config.unveri_role)
+    server_config = servers.find_one({'_id': server.id})
+
+    verified_role = get(server.roles, id=server_config['verified_role'])
+    unveri_role = get(server.roles, id=server_config['unveri_role'])
     await member.add_roles(verified_role)
     if unveri_role is not None:
         await member.remove_roles(unveri_role)
@@ -77,32 +55,28 @@ async def send_intro(data):
     if data.age >= 18:
         age = '18+'
 
-        adult_role = get(server.roles, id=server_config.adult_role)
+        adult_role = get(server.roles, id=server_config['adult_role'])
         await member.add_roles(adult_role)
 
         if data.nsfw:
-            nsfw_role = get(server.roles, id=server_config.nsfw_role)
+            nsfw_role = get(server.roles, id=server_config['nsfw_role'])
             await member.add_roles(nsfw_role)
     else:
         age = 'Minor'
 
-        minor_role = get(server.roles, id=server_config.minor_role)
+        minor_role = get(server.roles, id=server_config['minor_role'])
         await member.add_roles(minor_role)
 
     message = "Welcome, {0}!\nName: {1}\nAge: {2}\nPronouns: {3}\nAbout Me: {4}"
     message = message.format(member.mention, data.name, age, data.pronouns, data.about)
-    channel = get(server.channels, id=server_config.intro_channel)
+    channel = get(server.channels, id=server_config['intro_channel'])
     await channel.send(message)
 
     await client.get_user(data.id).send("Okay, you're all set! Be sure to stop by #role-react so you can grab any additional roles you want.")
-    with memory_scope() as session:
-        session.query(Intro).filter_by(id=data.id).delete()
+    intros.delete_one({'_id': data.id, 'server': server.id})
 
 async def init_intro(user, server):
-    intro = Intro(id=user.id, server=server.id, question=1)
-
-    with memory_scope() as session:
-        session.add(intro)
+    intros.insert_one({'_id': user.id, 'server': server.id})
 
     await user.send("Hey there, welcome to **" + server.name + "**! Let's get your introduction taken care of so you can access the whole server. \n"
                     + "I'm going to ask you 4 or 5 questions, and I'll post your answers as your introduction for everyone to see. \n"
@@ -117,17 +91,12 @@ async def on_ready():
 
 @client.event
 async def on_guild_join(server):
-    server_config = Server(id=server.id)
-
-    with storage_scope() as session:
-        session.add(server_config)
+    servers.insert_one({'_id': server.id})
 
 @client.event
 async def on_guild_remove(server):
-    with storage_scope() as session:
-        session.query(Server).filter_by(id=server.id).delete()
-    with memory_scope() as session:
-        session.query(Intro).filter_by(server=server.id).delete()
+    servers.delete_one({'_id': server.id})
+    intros.delete_many({'server': server.id})
 
 @client.event
 async def on_member_join(member):
@@ -135,11 +104,12 @@ async def on_member_join(member):
 
 @client.event
 async def on_member_remove(member):
-    with memory_scope() as session:
-        session.query(Intro).filter_by(id=member.id).delete()
-    with storage_scope() as session:
-        server_config = session.query(Server).filter_by(id=member.guild.id).first()
-    channel = get(member.guild.channels, id=server_config.intro_channel)
+    try:
+        intros.deleteOne({'_id': member.id, 'server': member.guild.id})
+    except pymongo.errors.InvalidOperation:
+        pass
+    server_config = servers.find_one({'_id': member.guild.id})
+    channel = get(member.guild.channels, id=server_config['intro_channel'])
     async for message in channel.history():
         if member.mentioned_in(message) or member.id == message.author.id:
             await message.delete()
@@ -151,20 +121,18 @@ async def on_message(message):
         return
 
     if message.author != client.user:
-        with memory_scope() as session:
-            result = session.query(Intro).filter_by(id=message.author.id).first()
-        if result:
-            if result.question == 1:
+        intro = intros.find_one({'_id': message.author.id})
+        if intro:
+            if intro['question'] == 1:
                 try:
                     age = int(message.content)
 
-                    with storage_scope() as session:
-                        server_config = session.query(Server).filter_by(id=result.server).first()
+                    server_config = servers.find_one({'_id': intro['server']})
 
-                    server = client.get_guild(server_config.id)
+                    server = client.get_guild(server_config['_id'])
 
-                    log_channel = get(server.channels, id=server_config.log_channel)
-                    mod_role = get(server.roles, id=server_config.mod_role)
+                    log_channel = get(server.channels, id=server_config['log_channel'])
+                    mod_role = get(server.roles, id=server_config['mod_role'])
                     member = get(server.members, id=message.author.id)
                     if age < 13:
                         await message.author.send("I'm sorry, but it is against Discord's Terms of Service for people under the age of 13 to use Discord.\n"
@@ -193,34 +161,27 @@ async def on_message(message):
                         mod_message = mod_message.format(mods=mod_role.mention, user=message.author.mention, age=str(age))
                         await log_channel.send(mod_message)
 
-                    with memory_scope() as session:
-                        session.query(Intro).filter_by(id=message.author.id).update({'age': age, 'question': 2})
+                        intros.update_one({'_id': message.author.id}, {'$set': {'question': 2}})
                     await message.author.send("What name would you like to be called?")
                 except ValueError:
                     await message.author.send("Please respond with a numeric value.")
-            elif result.question == 2:
+            elif intro['question'] == 2:
                 name = message.content
-                with memory_scope() as session:
-                    session.query(Intro).filter_by(id=message.author.id).update({'name': name, 'question': 3})
+                intros.update_one({'_id': message.author.id}, {'$set': {'name': name, 'question': 3}})
                 await message.author.send("What are your preferred pronouns?")
-            elif result.question == 3:
+            elif intro['question'] == 3:
                 pronouns = message.content
-                with memory_scope() as session:
-                    session.query(Intro).filter_by(id=message.author.id).update({'pronouns': pronouns, 'question': 4})
+                intros.update_one({'_id': message.author.id}, {'$set': {'pronouns': pronouns, 'question': 4}})
                 await message.author.send("Tell us about yourself in a sentence.")
-            elif result.question == 4:
+            elif intro['question'] == 4:
                 about = message.content
-                with memory_scope() as session:
-                    session.query(Intro).filter_by(id=message.author.id).update({'about': about, 'question': 5})
-                if result.age >= 18:
+                intros.update_one({'_id': message.author.id}, {'$set': {'about': about}})
+                if intro['age'] >= 18:
+                    intros.update_one({'_id': message.author.id}, {'$set': {'question': question}})
                     await message.author.send("Do you want to access NSFW content? (a Mod/Admin can help if you change your mind)")
                 else:
-                    with memory_scope() as session:
-                        result = session.query(Intro).filter_by(id=message.author.id).first()
-                    await send_intro(result)
-            elif result.question == 5:
-                if result.age < 18:
-                    return
+                    await send_intro(message.author.id)
+            elif intro['question'] == 5:
                 if message.content.lower() in config['yes_words']:
                     nsfw = True
                 elif message.content.lower() in config['no_words']:
@@ -229,33 +190,30 @@ async def on_message(message):
                     await message.author.send("I'm sorry, I didn't get that. Please answer 'yes' or 'no'.")
                     return
 
-                result.nsfw = nsfw
+                intros.update_one({'_id': message.author.id}, {'$set': {'nsfw': nsfw}})
 
-                await send_intro(result)
+                await send_intro(message.author.id)
 
         else:
             test_id = 0
             server = None
             while not server:
-                with storage_scope() as session:
-                    server_config = session.query(Server).order_by(Server.id.asc()).filter(Server.id > test_id).first()
-                if not server_config:
-                    break
+                server_config = servers.find_one({'_id': {'$gt': test_id}}, sort=pymongo.ASCENDING)
+                test_id = server_config['_id']
 
-                test_id = server_config.id
                 test_server =  client.get_guild(test_id)
                 if test_server.get_member(message.author.id):
                     server = test_server
 
             if server:
-                channel = get(server.channels, id=server_config.intro_channel)
-                intros = []
-                async for intro in channel.history():
-                    if str(message.author.id) in intro.content or message.author.id == intro.author.id:
-                        intros.append(intro)
+                channel = get(server.channels, id=server_config['intro_channel'])
+                posted_intros = []
+                async for post in channel.history():
+                    if str(message.author.id) in post.content or message.author.id == post.author.id:
+                        posted_intros.append(intro)
                         break
 
-                if intros:
+                if posted_intros:
                     await message.author.send("It looks like you've already got an intro. If you are missing any roles or are having any issues, please contact a Mod or Admin.")
                 else:
                     await init_intro(message.author, server)
@@ -288,14 +246,10 @@ async def _help(context):
 
 @client.command()
 async def set_channel(context, setting, channel: discord.TextChannel):
-    if setting == "intros":
-        with storage_scope() as session:
-            session.query(Server).filter_by(id=context.guild.id).update({'intro_channel': channel.id})
-    elif setting == "logs":
-        with storage_scope() as session:
-            session.query(Server).filter_by(id=context.guild.id).update({'log_channel': channel.id})
+    if setting in alias and 'channel' in alias[setting]:
+        servers.update_one({'_id': context.guild.id}, {'$set': {alias[setting]: channel.id}})
     else:
-        await context.send("The setting \"{0}\" does not exist.".format(setting))
+        await context.send("The setting \"{0}\" doesn't make sense.".format(setting))
         return
 
     await context.send("Success: {0} channel set to {1}.".format(setting, channel.mention))
@@ -309,26 +263,10 @@ async def channel_error(context, error):
 
 @client.command()
 async def set_role(context, setting, role: discord.Role):
-    if setting == "moderator":
-        with storage_scope() as session:
-            session.query(Server).filter_by(id=context.guild.id).update({'mod_role': role.id})
-    elif setting == "unverified":
-        with storage_scope() as session:
-            session.query(Server).filter_by(id=context.guild.id).update({'unveri_role': role.id})
-    elif setting == "verified":
-        with storage_scope() as session:
-            session.query(Server).filter_by(id=context.guild.id).update({'verified_role': role.id})
-    elif setting == "nsfw":
-        with storage_scope() as session:
-            session.query(Server).filter_by(id=context.guild.id).update({'nsfw_role': role.id})
-    elif setting == "minor":
-        with storage_scope() as session:
-            session.query(Server).filter_by(id=context.guild.id).update({'minor_role': role.id})
-    elif setting == "adult":
-        with storage_scope() as session:
-            session.query(Server).filter_by(id=context.guild.id).update({'adult_role': role.id})
+    if setting in alias and 'role' in alias[setting]:
+        servers.update_one({'_id': context.guild.id}, {'$set': {alias[setting]: role.id}})
     else:
-        await context.send("The setting \"{0}\" does not exist.".format(setting))
+        await context.send("The setting \"{0}\" doesn't make sense.".format(setting))
         return
 
     await context.send("Success: {0} role set to {1}.".format(setting, role.mention))
@@ -342,22 +280,23 @@ async def role_error(context, error):
 
 @client.command()
 async def status(context):
-    with storage_scope() as session:
-        server_config = session.query(Server).filter_by(id=context.guild.id).first()
+    server_config = servers.find_one({'_id': context.guild.id}, projection={'_id': False})
+
+    expected = list(settings)
 
     message = ''
-    for setting, value in server_config.__dict__.items():
-        if setting == 'id' or setting == '_sa_instance_state':
-            continue
-        if not value:
-            message += '**{0} is not set!**\n'.format(setting)
+    for setting, value in server_config.items():
+        expected.remove(setting)
+
+        if 'role' in setting:
+            role = get(context.guild.roles, id=value)
+            message += '{0} is set to {1}.\n'.format(setting, role.mention)
         else:
-            if 'role' in setting:
-                role = get(context.guild.roles, id=value)
-                message += '{0} is set to {1}.\n'.format(setting, role.mention)
-            else:
-                channel = get(context.guild.channels, id=value)
-                message += '{0} is set to {1}.\n'.format(setting, channel.mention)
+            channel = get(context.guild.channels, id=value)
+            message += '{0} is set to {1}.\n'.format(setting, channel.mention)
+
+    for setting in expected:
+        message += '**{0} is not set!**\n'.format(setting)
 
     message = message[:-1:] # remove the trailing linebreak
 
