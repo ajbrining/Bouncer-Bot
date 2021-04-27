@@ -245,11 +245,9 @@ async def set_channel(context, setting, channel: discord.TextChannel):
 
     if setting in alias and 'channel' in alias[setting]:
         servers.update_one({'_id': context.guild.id}, {'$set': {alias[setting]: channel.id}})
+        await context.send("Success: {0} channel set to {1}.".format(setting, channel.mention))
     else:
         await context.send("The setting \"{0}\" doesn't make sense.".format(setting))
-        return
-
-    await context.send("Success: {0} channel set to {1}.".format(setting, channel.mention))
 
 @set_channel.error
 async def channel_error(context, error):
@@ -266,11 +264,9 @@ async def set_role(context, setting, role: discord.Role):
 
     if setting in alias and 'role' in alias[setting]:
         servers.update_one({'_id': context.guild.id}, {'$set': {alias[setting]: role.id}})
+        await context.send("Success: {0} role set to {1}.".format(setting, role.mention))
     else:
         await context.send("The setting \"{0}\" doesn't make sense.".format(setting))
-        return
-
-    await context.send("Success: {0} role set to {1}.".format(setting, role.mention))
 
 @set_role.error
 async def role_error(context, error):
