@@ -239,6 +239,10 @@ async def _help(context):
 
 @client.command()
 async def set_channel(context, setting, channel: discord.TextChannel):
+    if not context.author.guild_permissions.manage_server:
+        await context.send("Sorry, you do not have permission to edit my settings. You need the 'Manage Server' permission.")
+        return
+
     if setting in alias and 'channel' in alias[setting]:
         servers.update_one({'_id': context.guild.id}, {'$set': {alias[setting]: channel.id}})
     else:
@@ -256,6 +260,10 @@ async def channel_error(context, error):
 
 @client.command()
 async def set_role(context, setting, role: discord.Role):
+    if not context.author.guild_permissions.manage_server:
+        await context.send("Sorry, you do not have permission to edit my settings. You need the 'Manage Server' permission.")
+        return
+
     if setting in alias and 'role' in alias[setting]:
         servers.update_one({'_id': context.guild.id}, {'$set': {alias[setting]: role.id}})
     else:
@@ -273,6 +281,10 @@ async def role_error(context, error):
 
 @client.command()
 async def status(context):
+    if not context.author.guild_permissions.manage_server:
+        await context.send("Sorry, you do not have permission to edit my settings. You need the 'Manage Server' permission.")
+        return
+
     server_config = servers.find_one({'_id': context.guild.id}, projection={'_id': False})
 
     expected = list(settings)
