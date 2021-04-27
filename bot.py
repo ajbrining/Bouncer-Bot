@@ -237,7 +237,7 @@ async def _help(context):
                 + ">     *nsfw* - the role that should be given to those who wish to access NSFW channels\n" \
                 + ">     *minor* - the role that is given to those under 18\n" \
                 + ">     *adult* - the role that is given to those over 18\n" \
-                + "> **Example**: @Bouncer Bot set minor \"Under 18\"\n\n" \
+                + "> **Example**: @Bouncer Bot set_role minor \"Under 18\"\n\n" \
                 + "**status**\n" \
                 + "> **Description**: Shows all settings and what they are set to. Takes no arguments.\n" \
                 + "> **Example**: @Bouncer Bot status"
