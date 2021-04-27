@@ -47,18 +47,21 @@ async def send_intro(user_id):
     server_config = servers.find_one({'_id': server.id})
 
     verified_role = get(server.roles, id=server_config['verified_role'])
-    unveri_role = get(server.roles, id=server_config['unveri_role'])
     await member.add_roles(verified_role)
-    if unveri_role is not None:
-        await member.remove_roles(unveri_role)
 
-    if data.age >= 18:
+    try:
+        unveri_role = get(server.roles, id=server_config['unveri_role'])
+        await member.remove_roles(unveri_role)
+    except KeyError:
+        pass
+
+    if intro['age'] >= 18:
         age = '18+'
 
         adult_role = get(server.roles, id=server_config['adult_role'])
         await member.add_roles(adult_role)
 
-        if data.nsfw:
+        if intro['nsfw']:
             nsfw_role = get(server.roles, id=server_config['nsfw_role'])
             await member.add_roles(nsfw_role)
     else:
@@ -68,15 +71,15 @@ async def send_intro(user_id):
         await member.add_roles(minor_role)
 
     message = "Welcome, {0}!\nName: {1}\nAge: {2}\nPronouns: {3}\nAbout Me: {4}"
-    message = message.format(member.mention, data.name, age, data.pronouns, data.about)
+    message = message.format(member.mention, intro['name'], age, intro['pronouns'], intro['about'])
     channel = get(server.channels, id=server_config['intro_channel'])
     await channel.send(message)
 
-    await client.get_user(data.id).send("Okay, you're all set! Be sure to stop by #role-react so you can grab any additional roles you want.")
-    intros.delete_one({'_id': data.id, 'server': server.id})
+    await client.get_user(intro['_id']).send("Okay, you're all set. Be good and have fun!")
+    intros.delete_one({'_id': intro.id, 'server': server.id})
 
 async def init_intro(user, server):
-    intros.insert_one({'_id': user.id, 'server': server.id})
+    intros.insert_one({'_id': user.id, 'server': server.id, 'question': 1})
 
     await user.send("Hey there, welcome to **" + server.name + "**! Let's get your introduction taken care of so you can access the whole server. \n"
                     + "I'm going to ask you 4 or 5 questions, and I'll post your answers as your introduction for everyone to see. \n"
@@ -105,7 +108,7 @@ async def on_member_join(member):
 @client.event
 async def on_member_remove(member):
     try:
-        intros.deleteOne({'_id': member.id, 'server': member.guild.id})
+        intros.delete_one({'_id': member.id, 'server': member.guild.id})
     except pymongo.errors.InvalidOperation:
         pass
     server_config = servers.find_one({'_id': member.guild.id})
@@ -161,7 +164,7 @@ async def on_message(message):
                         mod_message = mod_message.format(mods=mod_role.mention, user=message.author.mention, age=str(age))
                         await log_channel.send(mod_message)
 
-                        intros.update_one({'_id': message.author.id}, {'$set': {'question': 2}})
+                    intros.update_one({'_id': message.author.id}, {'$set': {'question': 2, 'age': age}})
                     await message.author.send("What name would you like to be called?")
                 except ValueError:
                     await message.author.send("Please respond with a numeric value.")
@@ -177,7 +180,7 @@ async def on_message(message):
                 about = message.content
                 intros.update_one({'_id': message.author.id}, {'$set': {'about': about}})
                 if intro['age'] >= 18:
-                    intros.update_one({'_id': message.author.id}, {'$set': {'question': question}})
+                    intros.update_one({'_id': message.author.id}, {'$set': {'question': 5}})
                     await message.author.send("Do you want to access NSFW content? (a Mod/Admin can help if you change your mind)")
                 else:
                     await send_intro(message.author.id)
