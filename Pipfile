@@ -13,7 +13,7 @@ idna = "==3.4"
 multidict = "==5.1.0"
 pymongo = "==4.3.3"
 typing-extensions = "==4.4.0"
-yarl = "==1.6.3"
+yarl = "==1.8.2"
 PyYAML = "==5.4.1"
 
 [dev-packages]
